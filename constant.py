@@ -66,7 +66,7 @@ train_loader = DataLoader(
 )
 
 
-EPOCH = 2
+EPOCH = 50
 
 
 if not os.path.exists(INFERENCE_CLEAN_DIR):
