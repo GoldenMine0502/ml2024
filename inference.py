@@ -27,7 +27,11 @@ for noisy_x, noisy_path in tqdm(inference_loader, ncols=100):
     with torch.no_grad():
         res = dcunet10(noisy_x)
 
-    out_path = os.path.join(INFERENCE_CLEAN_DIR, os.path.basename(noisy_path))
+    parent_directory_path = os.path.dirname(noisy_path)
+    parent_directory_name = os.path.basename(parent_directory_path)
+
+    out_path = os.path.join(INFERENCE_CLEAN_DIR, parent_directory_name, os.path.basename(noisy_path))
+    os.makedirs(os.path.join(INFERENCE_CLEAN_DIR, parent_directory_name), exist_ok=True)
     est_wav = res[0].cpu().detach().numpy()
 
     write(out_path, rate=16000, data=est_wav)
