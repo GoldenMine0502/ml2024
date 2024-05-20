@@ -109,6 +109,7 @@ class SpeechInferenceDataset(Dataset):
         x_noisy_stft = torch.stft(input=x_noisy, n_fft=self.n_fft,
                                   hop_length=self.hop_length, normalized=True, return_complex=False)
 
+        # print(x_noisy.shape, self.noisy_files[index])
         return x_noisy_stft, self.noisy_files[index]
 
     def _prepare_sample(self, waveform):
@@ -120,3 +121,7 @@ class SpeechInferenceDataset(Dataset):
         output = torch.from_numpy(output)
 
         return output
+
+
+def collate_inference(batch):
+    return batch[0]

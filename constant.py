@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import SpeechDataset, SpeechInferenceDataset
+from dataset import SpeechDataset, SpeechInferenceDataset, collate_inference
 
 
 def get_device():
@@ -47,10 +47,23 @@ test_dataset = SpeechDataset(test_noisy_files, test_clean_files, N_FFT, HOP_LENG
 train_dataset = SpeechDataset(train_noisy_files, train_clean_files, N_FFT, HOP_LENGTH)
 inference_dataset = SpeechInferenceDataset(inference_noisy_files, N_FFT, HOP_LENGTH)
 
-inference_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=1)
-test_loader = DataLoader(test_dataset, batch_size=4, shuffle=True)
-train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-
+inference_loader = DataLoader(
+    inference_dataset,
+    batch_size=1,
+    shuffle=False,
+    num_workers=1,
+    collate_fn=collate_inference
+)
+test_loader = DataLoader(
+    test_dataset,
+    batch_size=4,
+    shuffle=True
+)
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=4,
+    shuffle=True
+)
 
 
 EPOCH = 2

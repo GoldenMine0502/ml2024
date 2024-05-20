@@ -1,13 +1,14 @@
 import os
 
 from scipy.io.wavfile import write
+from tqdm import tqdm
 
 from constant import *
 import torch
 
 from dcunet import DCUnet10
 
-chkpt_path = '__weights.pth'
+chkpt_path = '__weights{}.pth'.format(EPOCH)
 chkpt_model = torch.load(chkpt_path)
 
 dcunet10 = DCUnet10(N_FFT, HOP_LENGTH).to(DEVICE)
@@ -16,11 +17,16 @@ dcunet10.load_state_dict(chkpt_model)
 dcunet10.eval()
 
 # 배치사이즈 1임
-for noisy_x, noisy_path in inference_loader:
-    noisy_x = noisy_x.to(DEVICE)
+for noisy_x, noisy_path in tqdm(inference_loader, ncols=100):
+    # noisy_x = data['x']
+    # noisy_path = data['path']
+
+    # print(noisy_x, noisy_path)
+    noisy_x = noisy_x.to(DEVICE).unsqueeze(0)  # give batch size = 1
 
     with torch.no_grad():
         res = dcunet10(noisy_x)
+
     out_path = os.path.join(INFERENCE_CLEAN_DIR, os.path.basename(noisy_path))
     est_wav = res[0].cpu().detach().numpy()
 
