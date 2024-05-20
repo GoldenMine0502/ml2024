@@ -17,7 +17,7 @@ dcunet10.load_state_dict(chkpt_model)
 dcunet10.eval()
 
 # 배치사이즈 1임
-for noisy_x, noisy_path in tqdm(inference_loader, ncols=100):
+for noisy_x, noisy_path, length in tqdm(inference_loader, ncols=100):
     # noisy_x = data['x']
     # noisy_path = data['path']
 
@@ -32,6 +32,8 @@ for noisy_x, noisy_path in tqdm(inference_loader, ncols=100):
 
     out_path = os.path.join(INFERENCE_CLEAN_DIR, parent_directory_name, os.path.basename(noisy_path))
     os.makedirs(os.path.join(INFERENCE_CLEAN_DIR, parent_directory_name), exist_ok=True)
-    est_wav = res[0].cpu().detach().numpy()
+
+    # squeeze 후 length 까지 자르기 (패딩 안된 원래길이)
+    est_wav = res[0][0:length].cpu().detach().numpy()
 
     write(out_path, rate=16000, data=est_wav)

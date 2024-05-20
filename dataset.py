@@ -3,6 +3,26 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import numpy as np
 
+
+MAX_LEN = 167700
+
+
+def prepare_sample(waveform):
+    waveform = waveform.numpy()
+    current_len = waveform.shape[1]
+
+    output = np.zeros((1, MAX_LEN), dtype='float32')
+    output[0, 0:current_len] = waveform[0, :MAX_LEN]
+    output = torch.from_numpy(output)
+
+    return output
+
+
+def load_sample(file):
+    waveform, _ = torchaudio.load(file)
+    return waveform
+
+
 class SpeechDataset(Dataset):
     """
     A dataset class with audio that cuts them/paddes them to a specified length, applies a Short-tome Fourier transform,
@@ -21,25 +41,20 @@ class SpeechDataset(Dataset):
 
         self.len_ = len(self.noisy_files)
 
-        # fixed len
-        self.max_len = 167700
-
     def __len__(self):
         return self.len_
-
-    def load_sample(self, file):
-        waveform, _ = torchaudio.load(file)
-        return waveform
 
     def __getitem__(self, index):
         # print(self.clean_files[index], self.noisy_files[index])
         # load to tensors and normalization
-        x_clean = self.load_sample(self.clean_files[index])
-        x_noisy = self.load_sample(self.noisy_files[index])
+        x_clean = load_sample(self.clean_files[index])
+        x_noisy = load_sample(self.noisy_files[index])
+
+        length = x_clean.shape[1]
 
         # padding/cutting
-        x_clean = self._prepare_sample(x_clean)
-        x_noisy = self._prepare_sample(x_noisy)
+        x_clean = prepare_sample(x_clean)
+        x_noisy = prepare_sample(x_noisy)
 
         # conv시 마지막 0=mag, 1=phase
         #         x_real = x[..., 0]
@@ -62,17 +77,22 @@ class SpeechDataset(Dataset):
         # x_noisy_stft = to_mag_phase(x_noisy_stft)
         # x_clean_stft = to_mag_phase(x_clean_stft)
 
-        return x_noisy_stft, x_clean_stft
+        return x_noisy_stft, x_clean_stft, length
 
-    def _prepare_sample(self, waveform):
-        waveform = waveform.numpy()
-        current_len = waveform.shape[1]
+def collate(batch):
+    noisy = []
+    clean = []
+    lengths = []
 
-        output = np.zeros((1, self.max_len), dtype='float32')
-        output[0, -current_len:] = waveform[0, :self.max_len]
-        output = torch.from_numpy(output)
+    for x_noisy_stft, x_clean_stft, length in batch:
+        noisy.append(x_noisy_stft.unsqueeze(0))
+        clean.append(x_clean_stft.unsqueeze(0))
+        lengths.append(length)
 
-        return output
+    noisy = torch.stack(noisy, dim=0)
+    clean = torch.stack(clean, dim=0)
+
+    return noisy, clean, lengths
 
 
 class SpeechInferenceDataset(Dataset):
@@ -92,36 +112,23 @@ class SpeechInferenceDataset(Dataset):
 
         self.len_ = len(self.noisy_files)
 
-        # fixed len
-        self.max_len = 167700
-
     def __len__(self):
         return self.len_
 
-    def load_sample(self, file):
-        waveform, _ = torchaudio.load(file)
-        return waveform
-
     def __getitem__(self, index):
-        x_noisy = self.load_sample(self.noisy_files[index])
-        x_noisy = self._prepare_sample(x_noisy)
+        x_noisy = load_sample(self.noisy_files[index])
+
+        length = x_noisy.shape[1]
+
+        x_noisy = prepare_sample(x_noisy)
 
         x_noisy_stft = torch.stft(input=x_noisy, n_fft=self.n_fft,
                                   hop_length=self.hop_length, normalized=True, return_complex=False)
 
         # print(x_noisy.shape, self.noisy_files[index])
-        return x_noisy_stft, self.noisy_files[index]
-
-    def _prepare_sample(self, waveform):
-        waveform = waveform.numpy()
-        current_len = waveform.shape[1]
-
-        output = np.zeros((1, self.max_len), dtype='float32')
-        output[0, -current_len:] = waveform[0, :self.max_len]
-        output = torch.from_numpy(output)
-
-        return output
+        return x_noisy_stft, self.noisy_files[index], length
 
 
 def collate_inference(batch):
     return batch[0]
+
