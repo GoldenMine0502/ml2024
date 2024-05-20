@@ -94,6 +94,10 @@ def train(net, train_loader, test_loader, loss_fn, optimizer, scheduler, epochs)
         print("Epoch: {}/{}...".format(e + 1, epochs),
               "Loss: {:.6f}...".format(train_loss),
               "Test Loss: {:.6f}".format(test_loss))
+
+        if e % 5 == 0:
+            torch.save(net.state_dict(), 'weights/weights{}.pth'.format(EPOCH))
+
     return train_losses, test_losses
 
 
@@ -158,6 +162,8 @@ def pesq_score(net, test_loader):
     return test_pesq
 
 
+if not os.path.exists('weights'):
+    os.mkdir('weights')
 # clear cache
 gc.collect()
 torch.cuda.empty_cache()
@@ -173,4 +179,4 @@ train_losses, test_losses = train(dcunet10, train_loader, test_loader, loss_fn, 
 pesq_metric = pesq_score(dcunet10, test_loader)
 print('pesq:', pesq_metric)
 
-torch.save(dcunet10.state_dict(), '__weights{}.pth'.format(EPOCH))
+torch.save(dcunet10.state_dict(), 'weights/weights{}.pth'.format(EPOCH))
