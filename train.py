@@ -53,14 +53,14 @@ mseloss = nn.MSELoss()
 def new_loss(clean, pred):
     # torch.Size([4, 515, 646, 2]) torch.Size([4, 167700])
     # print(clean.shape, noisy.shape)
-
-
+    # spec -> wav
     clean_wav = torch.complex(clean[..., 0], clean[..., 1])
     clean_wav = torch.istft(clean_wav, n_fft=N_FFT, hop_length=HOP_LENGTH, normalized=True, return_complex=False)
 
     enhanced_wav = torch.complex(pred[..., 0], pred[..., 1])
     enhanced_wav = torch.istft(enhanced_wav, n_fft=N_FFT, hop_length=HOP_LENGTH, normalized=True, return_complex=False)
 
+    # sisnr은 wav를 통해, mse는 spec(-> mag, phase)을 통해 구함
     loss = si_snr(clean_wav, enhanced_wav) + 100 * mseloss(clean, pred)
     # print(loss.item())
     return loss
