@@ -26,14 +26,14 @@ SAMPLE_RATE = 16000
 N_FFT = SAMPLE_RATE * 64 // 1000 + 4
 HOP_LENGTH = SAMPLE_RATE * 16 // 1000 + 4
 
-TRAIN_NOISY_DIR = Path('dataset/noisy_trainset_56spk_wav')
-TRAIN_CLEAN_DIR = Path('dataset/clean_trainset_56spk_wav')
+TRAIN_NOISY_DIR = Path('../dataset/noisy_trainset_56spk_wav')
+TRAIN_CLEAN_DIR = Path('../dataset/clean_trainset_56spk_wav')
 
-TEST_NOISY_DIR = Path('dataset/noisy_testset_wav')
-TEST_CLEAN_DIR = Path('dataset/clean_testset_wav')
+TEST_NOISY_DIR = Path('../dataset/noisy_testset_wav')
+TEST_CLEAN_DIR = Path('../dataset/clean_testset_wav')
 
-INFERENCE_NOISY_DIR = Path('dataset/wav16k')
-INFERENCE_CLEAN_DIR = Path('dataset/wav16k_clean')
+INFERENCE_NOISY_DIR = Path('../dataset/wav16k')
+INFERENCE_CLEAN_DIR = Path('../dataset/wav16k_clean')
 
 train_noisy_files = sorted(list(TRAIN_NOISY_DIR.rglob('*.wav')))
 train_clean_files = sorted(list(TRAIN_CLEAN_DIR.rglob('*.wav')))

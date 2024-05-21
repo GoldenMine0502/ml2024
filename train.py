@@ -1,5 +1,7 @@
 import numpy as np
 import gc
+
+from torch import nn
 from tqdm import tqdm
 from pesq import pesq
 
@@ -36,6 +38,34 @@ def wsdr_fn(x_, y_pred_, y_true_, eps=1e-8):
     return torch.mean(wSDR)
 
 
+def si_snr(clean, enhanced):
+    snr = torch.zeros(enhanced.shape[0]).cuda()
+    for i in range(enhanced.shape[0]):
+        target = (torch.dot(clean[i], enhanced[i]) * clean[i]) / torch.norm(clean[i]) ** 2
+        noise = enhanced[i] - target[i]
+        snr[i] += 10 * torch.log10((torch.norm(target) ** 2) / torch.norm(noise) ** 2)
+    return -torch.mean(snr)
+
+
+mseloss = nn.MSELoss()
+
+
+def new_loss(clean, pred):
+    # torch.Size([4, 515, 646, 2]) torch.Size([4, 167700])
+    # print(clean.shape, noisy.shape)
+
+
+    clean_wav = torch.complex(clean[..., 0], clean[..., 1])
+    clean_wav = torch.istft(clean_wav, n_fft=N_FFT, hop_length=HOP_LENGTH, normalized=True, return_complex=False)
+
+    enhanced_wav = torch.complex(pred[..., 0], pred[..., 1])
+    enhanced_wav = torch.istft(enhanced_wav, n_fft=N_FFT, hop_length=HOP_LENGTH, normalized=True, return_complex=False)
+
+    loss = si_snr(clean_wav, enhanced_wav) + 100 * mseloss(clean, pred)
+    # print(loss.item())
+    return loss
+
+
 def train_epoch(net, train_loader, loss_fn, optimizer):
     net.train()
     train_ep_loss = 0.
@@ -48,10 +78,11 @@ def train_epoch(net, train_loader, loss_fn, optimizer):
         net.zero_grad()
 
         # get the output from the model
-        pred_x = net(noisy_x)
+        pred_x_stft = net(noisy_x, is_istft=False)
 
         # calculate loss
-        loss = loss_fn(noisy_x, pred_x, clean_x)
+        # loss = loss_fn(noisy_x, pred_x, clean_x)
+        loss = loss_fn(clean_x, pred_x_stft)
         loss.backward()
         optimizer.step()
 
@@ -64,6 +95,31 @@ def train_epoch(net, train_loader, loss_fn, optimizer):
     gc.collect()
     torch.cuda.empty_cache()
     return train_ep_loss
+
+
+def test_epoch(net, test_loader, loss_fn):
+    net.eval()
+    test_ep_loss = 0.
+    counter = 0.
+    print('testing')
+    for noisy_x, clean_x in tqdm(test_loader, ncols=100):
+        # get the output from the model
+        noisy_x, clean_x = noisy_x.to(DEVICE), clean_x.to(DEVICE)
+        pred_x_stft = net(noisy_x, is_istft=False)
+        # calculate loss
+        # loss = loss_fn(noisy_x, pred_x, clean_x)
+        loss = loss_fn(clean_x, pred_x_stft)
+        test_ep_loss += loss.item()
+
+        counter += 1
+
+    test_ep_loss /= counter
+
+    # clear cache
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return test_ep_loss
 
 def train(net, train_loader, test_loader, loss_fn, optimizer, scheduler, epochs):
     train_losses = []
@@ -96,35 +152,9 @@ def train(net, train_loader, test_loader, loss_fn, optimizer, scheduler, epochs)
               "Test Loss: {:.6f}".format(test_loss))
 
         if e % 5 == 0:
-            torch.save(net.state_dict(), 'weights/weights{}.pth'.format(EPOCH))
+            torch.save(net.state_dict(), 'weights/weights{}.pth'.format(e))
 
     return train_losses, test_losses
-
-
-def test_epoch(net, test_loader, loss_fn):
-    net.eval()
-    test_ep_loss = 0.
-    counter = 0.
-    print('testing')
-    for noisy_x, clean_x in tqdm(test_loader, ncols=100):
-        # get the output from the model
-        noisy_x, clean_x = noisy_x.to(DEVICE), clean_x.to(DEVICE)
-        pred_x = net(noisy_x)
-
-        # calculate loss
-        loss = loss_fn(noisy_x, pred_x, clean_x)
-        test_ep_loss += loss.item()
-
-        counter += 1
-
-    test_ep_loss /= counter
-
-    # clear cache
-    gc.collect()
-    torch.cuda.empty_cache()
-
-    return test_ep_loss
-
 
 
 def pesq_score(net, test_loader):
@@ -170,7 +200,7 @@ torch.cuda.empty_cache()
 
 dcunet10 = DCUnet10(N_FFT, HOP_LENGTH).to(DEVICE)
 
-loss_fn = wsdr_fn
+loss_fn = new_loss
 optimizer = torch.optim.Adam(dcunet10.parameters(), lr=1e-4)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
 

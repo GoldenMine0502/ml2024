@@ -203,87 +203,89 @@ class DCUnet10(nn.Module):
 
         # downsampling/encoding
         # CNN
-        self.encoders = [
-            Encoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=1, out_channels=45),
-            Encoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=45, out_channels=90),
-            Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
-            Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
-            Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
-            Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
-        ]
-        # self.downsample0 = Encoder(filter_size=(7,5), stride_size=(2,2), in_channels=1, out_channels=45)
-        # self.downsample1 = Encoder(filter_size=(7,5), stride_size=(2,2), in_channels=45, out_channels=90)
-        # self.downsample2 = Encoder(filter_size=(5,3), stride_size=(2,2), in_channels=90, out_channels=90)
-        # self.downsample3 = Encoder(filter_size=(5,3), stride_size=(2,2), in_channels=90, out_channels=90)
-        # self.downsample4 = Encoder(filter_size=(5,3), stride_size=(2,1), in_channels=90, out_channels=90)
+        # self.encoders = [
+        #     Encoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=1, out_channels=45),
+        #     Encoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=45, out_channels=90),
+        #     Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
+        #     Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
+        #     Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
+        #     Encoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
+        # ]
+        self.downsample0 = Encoder(filter_size=(7,5), stride_size=(2,2), in_channels=1, out_channels=45)
+        self.downsample1 = Encoder(filter_size=(7,5), stride_size=(2,2), in_channels=45, out_channels=90)
+        self.downsample2 = Encoder(filter_size=(5,3), stride_size=(2,2), in_channels=90, out_channels=90)
+        self.downsample3 = Encoder(filter_size=(5,3), stride_size=(2,2), in_channels=90, out_channels=90)
+        self.downsample4 = Encoder(filter_size=(5,3), stride_size=(2,2), in_channels=90, out_channels=90)
 
         # upsampling/decoding
-        self.decoders = [
-            Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
-            Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=180, out_channels=90),
-            Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=180, out_channels=90),
-            Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=180, out_channels=90),
-            Decoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=180, out_channels=45),
-            Decoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=90, output_padding=(0, 1),
-                    out_channels=1, last_layer=True),
-        ]
+        # self.decoders = [
+        #     Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=90, out_channels=90),
+        #     Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=180, out_channels=90),
+        #     Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=180, out_channels=90),
+        #     Decoder(filter_size=(5, 3), stride_size=(2, 2), in_channels=180, out_channels=90),
+        #     Decoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=180, out_channels=45),
+        #     Decoder(filter_size=(7, 5), stride_size=(2, 2), in_channels=90, output_padding=(0, 1),
+        #             out_channels=1, last_layer=True),
+        # ]
 
-        for i, encoder in enumerate(self.encoders):
-            self.add_module('encoder{}'.format(i), encoder)
-
-        for i, decoder in enumerate(self.decoders):
-            self.add_module('decoder{}'.format(i), decoder)
-        # self.upsample0 = Decoder(filter_size=(5,3), stride_size=(2,1), in_channels=90, out_channels=90)
-        # self.upsample1 = Decoder(filter_size=(5,3), stride_size=(2,2), in_channels=180, out_channels=90)
-        # self.upsample2 = Decoder(filter_size=(5,3), stride_size=(2,2), in_channels=180, out_channels=90)
-        # self.upsample3 = Decoder(filter_size=(7,5), stride_size=(2,2), in_channels=180, out_channels=45)
-        # self.upsample4 = Decoder(filter_size=(7,5), stride_size=(2,2), in_channels=90, output_padding=(0,1),
-        #                          out_channels=1, last_layer=True)
+        # for i, encoder in enumerate(self.encoders):
+        #     self.add_module('encoder{}'.format(i), encoder)
+        #
+        # for i, decoder in enumerate(self.decoders):
+        #     self.add_module('decoder{}'.format(i), decoder)
+        self.upsample0 = Decoder(filter_size=(5,3), stride_size=(2,2), in_channels=90, out_channels=90)
+        self.upsample1 = Decoder(filter_size=(5,3), stride_size=(2,2), in_channels=180, out_channels=90)
+        self.upsample2 = Decoder(filter_size=(5,3), stride_size=(2,2), in_channels=180, out_channels=90)
+        self.upsample3 = Decoder(filter_size=(7,5), stride_size=(2,2), in_channels=180, out_channels=45)
+        self.upsample4 = Decoder(filter_size=(7,5), stride_size=(2,2), in_channels=90, output_padding=(0,1),
+                                 out_channels=1, last_layer=True)
 
 
 
     def forward(self, x, is_istft=True):
+        x = x.unsqueeze(1)
         # downsampling/encoding
 
-        ds = []
+        # ds = []
 
-        x_in = x
+        # x_in = x
 
-        for encoder in self.encoders:
-            x_in = encoder(x_in)
-            ds.append(x_in)
+        # for encoder in self.encoders:
+        #     x_in = encoder(x_in)
+        #     ds.append(x_in)
 
-        # d0 = self.downsample0(x)
-        # d1 = self.downsample1(d0)
-        # d2 = self.downsample2(d1)
-        # d3 = self.downsample3(d2)
-        # d4 = self.downsample4(d3)
+        d0 = self.downsample0(x)
+        d1 = self.downsample1(d0)
+        d2 = self.downsample2(d1)
+        d3 = self.downsample3(d2)
+        d4 = self.downsample4(d3)
 
-        for i, decoder in enumerate(self.decoders):
-            x_in = decoder(x_in)
-            if not decoder.last_layer:
-                x_in = torch.cat([x_in, ds[-(2 + i)]], dim=1)
+        # for i, decoder in enumerate(self.decoders):
+        #     x_in = decoder(x_in)
+        #     if not decoder.last_layer:
+        #         x_in = torch.cat([x_in, ds[-(2 + i)]], dim=1)
 
-        # # upsampling/decoding
-        # u0 = self.upsample0(d4)
-        # # skip-connection
-        # c0 = torch.cat((u0, d3), dim=1)
-        #
-        # u1 = self.upsample1(c0)
-        # c1 = torch.cat((u1, d2), dim=1)
-        #
-        # u2 = self.upsample2(c1)
-        # c2 = torch.cat((u2, d1), dim=1)
-        #
-        # u3 = self.upsample3(c2)
-        # c3 = torch.cat((u3, d0), dim=1)
-        #
-        # u4 = self.upsample4(c3)
+        # upsampling/decoding
+        u0 = self.upsample0(d4)
+        # skip-connection
+        c0 = torch.cat((u0, d3), dim=1)
+
+        u1 = self.upsample1(c0)
+        c1 = torch.cat((u1, d2), dim=1)
+
+        u2 = self.upsample2(c1)
+        c2 = torch.cat((u2, d1), dim=1)
+
+        u3 = self.upsample3(c2)
+        c3 = torch.cat((u3, d0), dim=1)
+
+        u4 = self.upsample4(c3)
 
         # u4 - the mask
-        output = x_in * x
+        output = u4 * x
+        output = torch.squeeze(output, 1)
+
         if is_istft:
-            output = torch.squeeze(output, 1)
             output = torch.complex(output[..., 0], output[..., 1])
             output = torch.istft(output, n_fft=self.n_fft, hop_length=self.hop_length, normalized=True, return_complex=False)
 

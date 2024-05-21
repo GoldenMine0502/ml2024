@@ -77,7 +77,10 @@ class SpeechDataset(Dataset):
         # x_noisy_stft = to_mag_phase(x_noisy_stft)
         # x_clean_stft = to_mag_phase(x_clean_stft)
 
-        return x_noisy_stft, x_clean_stft, length
+        x_noisy_stft = x_noisy_stft.squeeze(0)
+        x_clean_stft = x_clean_stft.squeeze(0)
+
+        return x_noisy_stft, x_clean_stft
 
 def collate(batch):
     noisy = []
