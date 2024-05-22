@@ -1,5 +1,6 @@
-
+import logging
 import os
+import sys
 
 import numpy as np
 import torch
@@ -11,6 +12,14 @@ from utils.audio import Audio
 from torch import nn
 from torchmetrics.audio import SignalDistortionRatio
 from scipy.io.wavfile import write
+
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=os.environ.get("LOGLEVEL", "INFO").upper(),
+    stream=sys.stdout,
+)
+logger = logging.getLogger("DCUNET_HUBERT")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -82,7 +91,7 @@ class DcunetModel():
         return results, mixed_wav, target_wav.squeeze(0), enhanced_wav.squeeze(0)
 
     def inference(self, test_data, output_dir):
-        file_name, length, mixed_wav_padding, mixed_spec_padding = test_data
+        file_path, length, mixed_wav, mixed_wav_padding, mixed_spec_padding = test_data
 
         mixed_spec_padding = mixed_spec_padding.to(device).unsqueeze(0)
         # target_wav = target_wav.to(device).unsqueeze(0)
@@ -115,10 +124,19 @@ class DcunetModel():
 
         est_wav = est_wav[0].cpu().detach().numpy()
 
-        out_path = os.path.join(output_dir, os.path.basename(file_name))
+        parent_directory_path = os.path.dirname(file_path)
+        parent_directory_name = os.path.basename(parent_directory_path)
 
-        scaled = np.int16(est_wav / np.max(np.abs(est_wav)) * 32767)
-        write(out_path, rate=self.hp.audio.sample_rate, data=scaled)
+        if parent_directory_name != 'test':
+
+            pass
+
+        out_path = os.path.join(output_dir, parent_directory_name, os.path.basename(file_path))
+        os.makedirs(os.path.join(output_dir, parent_directory_name), exist_ok=True)
+        # out_path = os.path.join(output_dir, os.path.basename(file_name))
+
+        est_wav = np.int16(est_wav / np.max(np.abs(est_wav)) * 32767)
+        write(out_path, rate=self.hp.audio.sample_rate, data=est_wav)
 
     def write_tensorboard(self, writer, test_list, epoch):
         results = test_list[0]
@@ -130,6 +148,8 @@ class DcunetModel():
         enhanced_wav = test_list[3]
 
         writer.log_evaluation(test_loss, sdr, mixed_wav, target_wav, enhanced_wav, epoch)
+
+        logger.info(f'sdr: {sdr}')
 
         return test_loss
 

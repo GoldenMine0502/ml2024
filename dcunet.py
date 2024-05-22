@@ -83,13 +83,13 @@ class Dcunet(nn.Module):
             if self.is_attention:  # Skip-connection is applied attention
                 att = self.attentions[i](xs[self.model_len - i - 1], p)
 
-                ## DCUNET-ATT
+                ## DCUNET_28k-ATT
                 p = torch.cat([p, xs[self.model_len - i - 1] * att], dim=2)
 
-                ## DCUNET TFSA DE / SkipConv / SDAB
+                ## DCUNET_28k TFSA DE / SkipConv / SDAB
                 #p = torch.cat([p, att], dim=2)
 
-            else:  # Skip-connection (DCUNET)
+            else:  # Skip-connection (DCUNET_28k)
                 p = torch.cat([p, xs[self.model_len - i - 1]], dim=2)
 
         mask = p.squeeze(2)

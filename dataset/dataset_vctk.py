@@ -78,10 +78,10 @@ class DataLoaderVCTK:
         return batch
 
     def collate_inference(self, batch):
-        return batch
+        return batch[0]
 
     def collate_test(self, batch):
-        return batch
+        return batch[0]
 
 
 class DatasetVCTKTest(Dataset):
@@ -89,26 +89,62 @@ class DatasetVCTKTest(Dataset):
         self.hp = hp
         self.output_dir = os.path.join(self.hp.data.output_dir, model_name)
         self.test_target_dir = hp.data.test_target_dir
+        self.model_name = model_name
         self.enhanced_wav_list = None
         self.mixed_wav_list = None
         pass
+
+    def init_lazy(self):
+        if self.enhanced_wav_list is None:
+            self.mixed_wav_list = self._file_list()[0]
+            self.enhanced_wav_list = self._file_list()[1]
+
+            print(len(self.mixed_wav_list), len(self.enhanced_wav_list))
+            print(self.mixed_wav_list[0], self.enhanced_wav_list[0])
 
     def _file_list(self):
         INFERENCE_NOISY_DIR = Path('../dataset/wav16k')
         mixed = sorted(list(INFERENCE_NOISY_DIR.rglob('*.wav')))
 
-        INFERENCE_CLEAN_DIR = Path('../../../dataset/wav16k_clean')
-        enhanced = sorted(list(INFERENCE_CLEAN_DIR.rglob('*.wav')))
+        INFERENCE_CLEAN_DIR = Path(f'estimate/{self.model_name}')
+        enhanced = list(INFERENCE_CLEAN_DIR.rglob('*.wav'))
+        enhanced_names = [os.path.basename(path) for path in enhanced]
+
+        enhanced_sorted = []
+        for m in mixed:
+            name = os.path.basename(m)
+
+            for m2 in enhanced:
+                name2 = os.path.basename(m2)
+
+                if name == name2:
+                    enhanced_sorted.append(m2)
+                    break
+
+        enhanced = enhanced_sorted
+
+        # 같은 개수여야함
+        print(len(mixed), len(enhanced))
+        assert len(mixed) == len(enhanced)
+
+        # 이름 다 같아야함
+        for m1, m2 in zip(mixed, enhanced):
+            m1 = os.path.basename(m1)
+            m2 = os.path.basename(m2)
+
+            if m1 != m2:
+                print(m1, m2)
+
+            assert m1 == m2
 
         return mixed, enhanced
 
     def __len__(self):
+        self.init_lazy()
         return len(self.mixed_wav_list)
 
     def __getitem__(self, index):
-        if self.enhanced_wav_list is None:
-            self.mixed_wav_list = self._file_list()[0]
-            self.enhanced_wav_list = self._file_list()[1]
+        self.init_lazy()
 
         mixed, _ = librosa.load(self.mixed_wav_list[index], sr=self.hp.audio.sample_rate)
         enhanced, _ = librosa.load(self.enhanced_wav_list[index], sr=self.hp.audio.sample_rate)
@@ -117,6 +153,9 @@ class DatasetVCTKTest(Dataset):
             mixed = mixed[0:len(enhanced)]
         else:
             enhanced = enhanced[0:len(mixed)]
+
+        mixed = torch.from_numpy(mixed).float()
+        enhanced = torch.from_numpy(enhanced).float()
 
         return mixed, enhanced
 
@@ -139,17 +178,17 @@ class DatasetVCTKInference(Dataset):
         return len(self.test_mixed_wav_list)
 
     def __getitem__(self, index):
-        test_wav = librosa.load(self.test_mixed_wav_list[index], sr=self.hp.audio.sample_rate)
-        test_wav = torch.from_numpy(test_wav).float()
+        mixed_wav, _ = librosa.load(self.test_mixed_wav_list[index], sr=self.hp.audio.sample_rate)
+        mixed_wav = torch.from_numpy(mixed_wav).float()
 
-        length = test_wav.shape[0]
+        length = mixed_wav.shape[0]
 
-        mixed_wav_padding = np.concatenate([test_wav, np.zeros(self.hp.train.max_audio_len - test_wav.shape[0])],
+        mixed_wav_padding = np.concatenate([mixed_wav, np.zeros(self.hp.train.max_audio_len - mixed_wav.shape[0])],
                                            axis=0)
         mixed_spec_padding = self.audio.wav2spec(mixed_wav_padding)
         mixed_spec_padding = torch.from_numpy(mixed_spec_padding).float()
 
-        return self.test_mixed_wav_list[index], length, test_wav, mixed_wav_padding, mixed_spec_padding
+        return self.test_mixed_wav_list[index], length, mixed_wav, mixed_wav_padding, mixed_spec_padding
 
 
 class DatasetVCTK(Dataset):
@@ -158,25 +197,69 @@ class DatasetVCTK(Dataset):
         self.train = train
         self.data_dir = hp.data.mixed_dir
         self.target_dir = hp.data.target_dir
-        self.ctrl = hp.data.train_ctrl if train else hp.data.validate_ctrl
+        # self.ctrl = hp.data.train_ctrl if train else hp.data.validate_ctrl
         # self.ctrl_dir = hp.data.train_ctrl_dir if train else hp.data.test_ctrl_dir
 
-        new_lists = self._filelist()
+        new_lists = self._file_list()
         self.target_wav_list = new_lists[0]
         self.mixed_wav_list = new_lists[1]
-        self.ctrl_list = new_lists[2]
+        # self.ctrl_list = new_lists[2]
 
         self.audio = Audio(hp)
 
         assert len(self.target_wav_list) == len(self.mixed_wav_list), "number of training files must match"
 
-    def _filelist(self):
-        lines = read_ctrl(self.ctrl)
+    def _file_list(self):
+        if self.train:
+            TRAIN_NOISY_DIR = Path('../dataset/noisy_trainset_56spk_wav')
+            TRAIN_CLEAN_DIR = Path('../dataset/clean_trainset_56spk_wav')
 
-        new_target_wav = [(self.target_dir + x + self.hp.form.target.wav) for x in lines]
-        new_mixed_wav = [(self.data_dir + x + self.hp.form.mixed.wav) for x in lines]
+            mixed = sorted(list(TRAIN_NOISY_DIR.rglob('*.wav')))
+            clean = sorted(list(TRAIN_CLEAN_DIR.rglob('*.wav')))
+        else:
+            TEST_NOISY_DIR = Path('../dataset/noisy_testset_wav')
+            TEST_CLEAN_DIR = Path('../dataset/clean_testset_wav')
 
-        return [new_target_wav, new_mixed_wav, lines]
+            mixed = sorted(list(TEST_NOISY_DIR.rglob('*.wav')))
+            clean = sorted(list(TEST_CLEAN_DIR.rglob('*.wav')))
+
+        clean_names = [os.path.basename(path) for path in clean]
+
+        clean_sorted = []
+        for m in mixed:
+            name = os.path.basename(m)
+
+            for i, m2 in enumerate(clean):
+                name2 = clean_names[i]
+
+                if name == name2:
+                    clean_sorted.append(m2)
+                    break
+
+        clean = clean_sorted
+
+        # 같은 개수여야함
+        print(len(mixed), len(clean))
+        assert len(mixed) == len(clean)
+
+        # 이름 다 같아야함
+        for m1, m2 in zip(mixed, clean):
+            m1 = os.path.basename(m1)
+            m2 = os.path.basename(m2)
+
+            if m1 != m2:
+                print(m1, m2)
+
+            assert m1 == m2
+
+        return mixed, clean
+    # def _filelist(self):
+    #     lines = read_ctrl(self.ctrl)
+    #
+    #     new_target_wav = [(self.target_dir + x + self.hp.form.target.wav) for x in lines]
+    #     new_mixed_wav = [(self.data_dir + x + self.hp.form.mixed.wav) for x in lines]
+    #
+    #     return [new_target_wav, new_mixed_wav, lines]
 
     def __len__(self):
         return len(self.target_wav_list)

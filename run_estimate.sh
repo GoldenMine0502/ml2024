@@ -4,10 +4,9 @@ model_type=DCUNET
 dataset_type=VCTK16K
 epoch=50
 output_data_dir=estimate/${model_type}/
-#chkpt_path=chkpt/${model_type}/chkpt_30.pt
-chkpt_estimate_path=chkpt/${model_type}/chkpt_50.pt
+chkpt_path=chkpt/${model_type}/chkpt_30.pt
 
-train=1
+train=0
 inference=2
 
 python3 trainer.py \
@@ -17,6 +16,6 @@ python3 trainer.py \
   -d $dataset_type \
   -e $epoch \
   -o $output_data_dir \
-  -pp $chkpt_estimate_path\
+  -pp $chkpt_path\
   --train $train \
   --inference $inference

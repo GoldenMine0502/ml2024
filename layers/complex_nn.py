@@ -121,7 +121,7 @@ class ComplexActivation(nn.Module):
         return output
 
 
-# DCUNET-ATT
+# DCUNET_28k-ATT
 class SkipAttention(nn.Module):
 
     # self.feature_shape = [(5, 55), (9, 112), (17, 114), (33, 230), (65, 232), (129, 467), (257, 471)]

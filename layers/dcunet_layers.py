@@ -62,13 +62,13 @@ class Decoder(nn.Module):
 class ComplexAttention(nn.Module):
     def __init__(self, channel, feature_shape):
         super().__init__()
-        # DCUNET-ATT
+        # DCUNET_28k-ATT
         self.att = complex_nn.SkipAttention(channel, feature_shape[0], feature_shape[1])
 
         # SkipConv
         # self.att = complex_nn.SkipConv(channel, feature_shape[0], feature_shape[1])
 
-        # DCUNET TFSA DE
+        # DCUNET_28k TFSA DE
         # self.att = complex_nn.SelfAttention(channel, feature_shape[0], feature_shape[1])
 
     def forward(self, Q, K):
