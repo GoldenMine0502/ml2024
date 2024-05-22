@@ -96,8 +96,9 @@ class DatasetVCTKTest(Dataset):
 
     def init_lazy(self):
         if self.enhanced_wav_list is None:
-            self.mixed_wav_list = self._file_list()[0]
-            self.enhanced_wav_list = self._file_list()[1]
+            file_list = self._file_list()
+            self.mixed_wav_list = file_list[0]
+            self.enhanced_wav_list = file_list[1]
 
             print(len(self.mixed_wav_list), len(self.enhanced_wav_list))
             print(self.mixed_wav_list[0], self.enhanced_wav_list[0])
