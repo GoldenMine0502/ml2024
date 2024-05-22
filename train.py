@@ -125,10 +125,10 @@ def train(net, train_loader, test_loader, loss_fn, optimizer, scheduler, epochs)
     train_losses = []
     test_losses = []
 
-    for e in range(epochs):
+    for e in range(1, epochs + 1):
 
         # first evaluating for comparison
-        if e == 0:
+        if e == 1:
             with torch.no_grad():
                 test_loss = test_epoch(net, test_loader, loss_fn)
 
@@ -147,7 +147,7 @@ def train(net, train_loader, test_loader, loss_fn, optimizer, scheduler, epochs)
         torch.cuda.empty_cache()
         gc.collect()
 
-        print("Epoch: {}/{}...".format(e + 1, epochs),
+        print("Epoch: {}/{}...".format(e, epochs),
               "Loss: {:.6f}...".format(train_loss),
               "Test Loss: {:.6f}".format(test_loss))
 
