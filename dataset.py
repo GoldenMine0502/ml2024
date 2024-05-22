@@ -128,6 +128,8 @@ class SpeechInferenceDataset(Dataset):
         x_noisy_stft = torch.stft(input=x_noisy, n_fft=self.n_fft,
                                   hop_length=self.hop_length, normalized=True, return_complex=False)
 
+        x_noisy_stft = x_noisy_stft.squeeze(0)
+
         # print(x_noisy.shape, self.noisy_files[index])
         return x_noisy_stft, self.noisy_files[index], length
 
