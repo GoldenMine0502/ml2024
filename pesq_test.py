@@ -1,3 +1,5 @@
+import numpy as np
+from pesq import pesq
 from tqdm import tqdm
 from constant import *
 
@@ -12,8 +14,8 @@ def pesq_score(net, test_loader):
         noisy_x = noisy_x.to(DEVICE)
         with torch.no_grad():
             pred_x = net(noisy_x)
-        clean_x = torch.squeeze(clean_x, 1)
-        clean_x = torch.complex(clean_x[..., 0], clean_x[..., 1])
+
+        clean_x = torch.complex(pred_x[..., 0], pred_x[..., 1])
         clean_x = torch.istft(clean_x, n_fft=N_FFT, hop_length=HOP_LENGTH, normalized=True, return_complex=False)
 
         psq = []
