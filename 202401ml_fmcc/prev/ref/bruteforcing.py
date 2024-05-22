@@ -1,5 +1,5 @@
-from constant import *
-from train import dcunet10
+from prev.constant import *
+from prev.train import dcunet10
 
 
 for max_len_candidate in range(165000, 200000, 1):
