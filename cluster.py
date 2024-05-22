@@ -1,3 +1,4 @@
+import argparse
 import itertools
 import os
 import subprocess
@@ -20,75 +21,67 @@ def load_audio(file_path):
 
 
 def get_statistical(value, axis=1, only_mean=False):
-    mean_mfcc = np.mean(value, axis=axis)
+    mean_val = np.mean(value, axis=axis)
+    std_val = np.std(value, axis=axis)
+    median_val = np.median(value, axis=axis)
+    max_val = np.max(value, axis=axis)
+    min_val = np.min(value, axis=axis)
 
-    if only_mean:
-        return np.concatenate([mean_mfcc])
+    feature_list = [mean_val]
+    if not only_mean:
+        feature_list.extend([std_val, median_val, max_val, min_val])
 
-    std_mfcc = np.std(value, axis=axis)
-    # median_mfcc = np.median(value, axis=axis)
-    max_mfcc = np.array([np.max(value)])
-    min_mfcc = np.array([np.min(value)])
-    # print(max_mfcc.shape)
-    # return np.concatenate([mean_mfcc, std_mfcc, median_mfcc, max_mfcc, min_mfcc])
-    return np.concatenate([mean_mfcc, std_mfcc, max_mfcc, min_mfcc])
-
+    concatenated = np.concatenate(feature_list)
+    return concatenated
 
 def get_simple_feature(y, sr):
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-
     return get_statistical(mfcc)
 
-
 def get_all_feature(y, sr):
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-    # MFCC의 1차 미분(속도) 계산
+    n_mfcc = 26
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
     mfcc_delta = librosa.feature.delta(mfcc)
-    # MFCC의 2차 미분(가속도) 계산
     mfcc_delta2 = librosa.feature.delta(mfcc, order=2)
 
-    # 몰?루 ㅋㅋㅋㅋㅋㅋ
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
     zcr = librosa.feature.zero_crossing_rate(y)
+    mel = librosa.feature.melspectrogram(y=y, sr=sr)
+    rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
+    flux = librosa.onset.onset_strength(y=y, sr=sr)
+    rms = librosa.feature.rms(y=y)
+    bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
+    centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
+    flatness = librosa.feature.spectral_flatness(y=y)
+    # tonnetz = librosa.feature.tonnetz(y=y, sr=sr, hop_length=128)
 
-    # 4. 벡터 양자화 (Vector Quantization)
-    codebook, _ = kmeans(mfcc.T, k_or_guess=16)  # 코드북 생성
+    codebook, _ = kmeans(mfcc.T, k_or_guess=16)
     vq_features, _ = vq(mfcc.T, codebook)
 
-    # 5. 차원 축소 기법 (PCA)
     pca = PCA(n_components=10)
     mfcc_reduced = pca.fit_transform(mfcc.T)
 
-    # 6. Contextual Features
-    # context_window_size = 5
-    # contextual_features = []
-    # for i in range(context_window_size, mfcc.shape[1] - context_window_size):
-    #     context = mfcc[:, i - context_window_size:i + context_window_size + 1].flatten()
-    #     contextual_features.append(context)
-    # contextual_features = np.array(contextual_features)
-
-    # print(mfcc.shape, mfcc_delta.shape, mfcc_delta2.shape)
-    # print(chroma.shape, contrast.shape, zcr.shape)
-    # print(vq_features.shape, mfcc_reduced.shape, contextual_features.shape)
-
-    # 전체 특징 결합
     combined_features = np.concatenate([
         get_statistical(mfcc),
         get_statistical(mfcc_delta, only_mean=True),
         get_statistical(mfcc_delta2, only_mean=True),
-        get_statistical(chroma),
-        get_statistical(contrast),
-        get_statistical(zcr),
+        get_statistical(chroma, only_mean=True),
+        get_statistical(contrast, only_mean=True),
+        get_statistical(mel, only_mean=True),
+        get_statistical(rolloff, only_mean=True),
+        get_statistical(zcr, only_mean=True),
+        get_statistical(np.expand_dims(flux, axis=0), only_mean=True),
+        get_statistical(rms, only_mean=True),
+        get_statistical(bandwidth, only_mean=True),
+        get_statistical(centroid, only_mean=True),
+        get_statistical(flatness, only_mean=True),
+        # get_statistical(tonnetz, only_mean=True),
         get_statistical(np.expand_dims(vq_features, axis=0), only_mean=True),
         get_statistical(mfcc_reduced.T, only_mean=True),
-        # get_statistical(contextual_features.T, only_mean=True),
     ])
 
-    # print(combined_features.shape)
-
     return combined_features
-
 
 def load_audio_files(root_folder, ctrl):
     audio_data = []
@@ -116,16 +109,24 @@ def perform_kmeans_clustering(data, n_clusters=2):
     return kmeans
 
 
-NEW_LOAD = True
-
 def main():
-    dataset_name = 'wav16k'
-    train_folder = f'/mnt/nvme/dataset/{dataset_name}/train'
-    train_ctrl = '202401ml_fmcc/fmcc_train.ctl'
-    test_folder = f'/mnt/nvme/dataset/{dataset_name}/test/'
-    test_ctrl = '202401ml_fmcc/fmcc_test.ctl'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default='wav16k')
+    parser.add_argument('--train_folder', type=str, required=True)
+    parser.add_argument('--train_ctrl', type=str, default=None)
+    parser.add_argument('--test_folder', type=str, default=None)
+    parser.add_argument('--test_ctrl', type=str, default=None)
+    parser.add_argument('--new_load', type=bool, default=True)
+    args = parser.parse_args()
 
-    if NEW_LOAD:
+    dataset_name = args.dataset
+    train_folder = args.train_folder
+    train_ctrl = args.train_ctrl
+    test_folder = args.test_folder
+    test_ctrl = args.test_ctrl
+    new_load = args.new_load
+
+    if new_load:
         print('extracting...')
         # audio_data, labels, _ = load_audio_files(train_folder)
         audio_data, labels, _ = load_audio_files(train_folder, train_ctrl)
@@ -154,16 +155,18 @@ def main():
 
     print('training...')
 
-    degrees = [2, 3, 4, 5]
-    gammas = ['scale', 'auto', 0.001, 0.01, 0.1, 1, 10]
-    cs = [0.1, 1, 3, 5, 10, 100, 250, 500, 1000]
+    degrees = [2, 3, 5]
+    gammas = ['scale', 'auto', 0.001, 0.01, 0.1]
+    cs = [1, 10, 100, 250, 500, 1000]
+    coef0 = [0.0, 0.5, 1.0]
+    decision_function_shape = ['ovo', 'ovr']
 
     acc_best = 0
     svm_best = None
 
-    for degree, gamma, c in tqdm(list(itertools.product(degrees, gammas, cs)), ncols=50):
+    for degree, gamma, c, coef0, decision_function_shape in tqdm(list(itertools.product(degrees, gammas, cs, coef0, decision_function_shape)), ncols=50):
         # 객체 생성
-        svm = SVC(kernel='rbf', probability=False, degree=degree, gamma=gamma, C=c)
+        svm = SVC(kernel='rbf', probability=False, degree=degree, gamma=gamma, C=c, coef0=coef0, decision_function_shape=decision_function_shape)
 
         # 학습
         svm.fit(audio_data, labels)
@@ -192,9 +195,10 @@ def main():
             acc_best = acc
             svm_best = svm
 
-        print('\npredicted c={}, gamma={}, degree={}, acc={} / best c={}, gamma={}, degree={}, acc={}'.format(
-            c, gamma, degree, acc, svm_best.C, svm_best.gamma, svm_best.degree, acc_best)
-        )
+        print('\n[predicted c={}, gamma={}, degree={}, acc={}, coef={}, dec={}] best {} {} {} {} {} {}'.format(
+            c, gamma, degree, acc, coef0, decision_function_shape,
+            svm_best.C, svm_best.gamma, svm_best.degree, acc_best, svm_best.coef0, svm_best.decision_function_shape
+        ))
 
 
 if __name__ == "__main__":
