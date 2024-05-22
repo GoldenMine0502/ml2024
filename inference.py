@@ -8,7 +8,9 @@ import torch
 
 from dcunet import DCUnet10
 
-chkpt_path = '__weights{}.pth'.format(EPOCH)
+MY_EPOCH = 25
+
+chkpt_path = 'weights/weights{}.pth'.format(MY_EPOCH)
 chkpt_model = torch.load(chkpt_path)
 
 dcunet10 = DCUnet10(N_FFT, HOP_LENGTH).to(DEVICE)
