@@ -38,17 +38,18 @@ def get_simple_feature(y, sr):
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     return get_statistical(mfcc)
 
+
 def get_all_feature(y, sr):
     n_mfcc = 26
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc, fmax=500)
     mfcc_delta = librosa.feature.delta(mfcc)
     mfcc_delta2 = librosa.feature.delta(mfcc, order=2)
 
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
     zcr = librosa.feature.zero_crossing_rate(y)
-    mel = librosa.feature.melspectrogram(y=y, sr=sr)
-    rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
+    mel = librosa.feature.melspectrogram(y=y, sr=sr, fmax=500)
+    # rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
     flux = librosa.onset.onset_strength(y=y, sr=sr)
     rms = librosa.feature.rms(y=y)
     bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)
@@ -62,6 +63,18 @@ def get_all_feature(y, sr):
     pca = PCA(n_components=10)
     mfcc_reduced = pca.fit_transform(mfcc.T)
 
+    def make_context_feature(feature, context_window_size=15):
+        contextual_features = []
+        for i in range(context_window_size, feature.shape[1] - context_window_size):
+            context = feature[:, i - context_window_size:i + context_window_size + 1].flatten()
+            contextual_features.append(context)
+        return np.array(contextual_features)
+
+    contextual_features = make_context_feature(mfcc)
+    contextual_features2 = make_context_feature(mel, context_window_size=15)
+
+    # print(contextual_features.shape, contextual_features2.shape)
+
     combined_features = np.concatenate([
         get_statistical(mfcc),
         get_statistical(mfcc_delta, only_mean=True),
@@ -69,17 +82,21 @@ def get_all_feature(y, sr):
         get_statistical(chroma, only_mean=True),
         get_statistical(contrast, only_mean=True),
         get_statistical(mel, only_mean=True),
-        get_statistical(rolloff, only_mean=True),
+        # get_statistical(rolloff, only_mean=True),
         get_statistical(zcr, only_mean=True),
+        get_statistical(contextual_features.T, only_mean=True, additional=True),
+        get_statistical(contextual_features2.T, only_mean=True, additional=True),
         get_statistical(np.expand_dims(flux, axis=0), only_mean=True),
         get_statistical(rms, only_mean=True),
         get_statistical(bandwidth, only_mean=True),
         get_statistical(centroid, only_mean=True),
         get_statistical(flatness, only_mean=True),
+        # get_statistical(np.expand_dims(vq_features, axis=0), only_mean=True),
+        get_statistical(mfcc_reduced.T),
         # get_statistical(tonnetz, only_mean=True),
-        get_statistical(np.expand_dims(vq_features, axis=0), only_mean=True),
-        get_statistical(mfcc_reduced.T, only_mean=True),
     ])
+
+    # print(combined_features.shape)
 
     return combined_features
 
@@ -88,6 +105,8 @@ def load_audio_files(root_folder, ctrl):
     labels = []
     files = []
 
+    first_feature = None
+
     with open(ctrl, 'rt') as file:
         for line in tqdm(list(file), ncols=50):
             line = line.rstrip()
@@ -95,6 +114,39 @@ def load_audio_files(root_folder, ctrl):
             y, sr = load_audio(os.path.join(root_folder, '{}.wav'.format(line)))
             label = 0 if line[0] == 'F' else 1
             combined_feature = get_all_feature(y, sr)
+
+            if first_feature is None:
+                first_feature = combined_feature.shape[0]
+            else:
+                assert first_feature == combined_feature.shape[0]
+
+            audio_data.append(combined_feature)
+            labels.append(label)
+            files.append(os.path.basename(line))
+
+    return audio_data, labels, files
+
+
+def load_feature_files(root_folder, ctrl):
+    audio_data = []
+    labels = []
+    files = []
+
+    first_feature = None
+
+    with open(ctrl, 'rt') as file:
+        for line in tqdm(list(file), ncols=50):
+            line = line.rstrip()
+
+            # y, sr = load_audio(os.path.join(root_folder, '{}.wav.npy'.format(line)))
+            # combined_feature = get_all_feature(y, 16000)
+            combined_feature = np.load(os.path.join(root_folder, '{}.wav.npy'.format(line)))
+            label = 0 if line[0] == 'F' else 1
+
+            if first_feature is None:
+                first_feature = combined_feature.shape[0]
+            else:
+                assert first_feature == combined_feature.shape[0]
 
             audio_data.append(combined_feature)
             labels.append(label)
@@ -116,7 +168,8 @@ def main():
     parser.add_argument('--train_ctrl', type=str, default=None)
     parser.add_argument('--test_folder', type=str, default=None)
     parser.add_argument('--test_ctrl', type=str, default=None)
-    parser.add_argument('--new_load', type=bool, default=True)
+    parser.add_argument('--new_load', type=int, default=1)
+    parser.add_argument('--feature', type=int, default=0)
     args = parser.parse_args()
 
     dataset_name = args.dataset
@@ -125,8 +178,12 @@ def main():
     test_folder = args.test_folder
     test_ctrl = args.test_ctrl
     new_load = args.new_load
+    feature = args.feature
 
-    if new_load:
+    if feature != 0:
+        audio_data, labels, _ = load_feature_files(train_folder, train_ctrl)
+        test_data, _, test_files = load_feature_files(test_folder, test_ctrl)
+    elif new_load != 0:
         print('extracting...')
         # audio_data, labels, _ = load_audio_files(train_folder)
         audio_data, labels, _ = load_audio_files(train_folder, train_ctrl)
@@ -155,18 +212,32 @@ def main():
 
     print('training...')
 
-    degrees = [2, 3, 5]
-    gammas = ['scale', 'auto', 0.001, 0.01, 0.1]
-    cs = [1, 10, 100, 250, 500, 1000]
-    coef0 = [0.0, 0.5, 1.0]
-    decision_function_shape = ['ovo', 'ovr']
+    degrees = [3]
+    gammas = [1e-8, 5e-7, 1e-7, 5e-6, 1e-6, 1e-5, 'scale', ]  # 0.00001, 0.0001, 0.001, 0.01, 0.1,
+    # cs = [i for i in range(1, 200)]
+    cs = [1, 3, 5, 10, 50, 100, 150, 250, 500, 1000]
+    tol = [1e-1, 1e-3, 1e-5]
+    # degrees = [3]
+    # gammas = ['scale']  # 0.00001, 0.0001, 0.001, 0.01,
+    # cs = [1, 3, 5, 10, 50, 100, 150, 250, 500, 1000]
+    # coef0 = [0.0, 0.5, 1.0]
+    # decision_function_shape = ['ovo', 'ovr']
 
     acc_best = 0
     svm_best = None
 
-    for degree, gamma, c, coef0, decision_function_shape in tqdm(list(itertools.product(degrees, gammas, cs, coef0, decision_function_shape)), ncols=50):
+    for degree, gamma, c, tol in tqdm(list(itertools.product(degrees, gammas, cs, tol)), ncols=50):
         # 객체 생성
-        svm = SVC(kernel='rbf', probability=False, degree=degree, gamma=gamma, C=c, coef0=coef0, decision_function_shape=decision_function_shape)
+        svm = SVC(
+            kernel='rbf',
+            probability=False,
+            degree=degree,
+            gamma=gamma,
+            C=c,
+            tol=tol,
+            decision_function_shape='ovo',
+            cache_size=2000,
+        )
 
         # 학습
         svm.fit(audio_data, labels)
@@ -195,9 +266,9 @@ def main():
             acc_best = acc
             svm_best = svm
 
-        print('\n[predicted c={}, gamma={}, degree={}, acc={}, coef={}, dec={}] best {} {} {} {} {} {}'.format(
-            c, gamma, degree, acc, coef0, decision_function_shape,
-            svm_best.C, svm_best.gamma, svm_best.degree, acc_best, svm_best.coef0, svm_best.decision_function_shape
+        print('\n[predicted c={}, gamma={}, degree={}, dec={}] best {} {} {} {}'.format(
+            c, gamma, tol, acc,
+            svm_best.C, svm_best.gamma, svm_best.tol, acc_best,
         ))
 
 
